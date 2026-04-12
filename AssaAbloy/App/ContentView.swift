@@ -13,11 +13,7 @@ struct ContentView: View {
     
     var body: some View {
         if authViewModel.isAuthenticated {
-            Text("Logged In")
-                .font(.largeTitle)
-                .onTapGesture {
-                    authViewModel.signOut()
-                }
+            DoorsFactory.makeDoorsListView()
         } else {
             AuthFactory.makeSignInView(viewModel: authViewModel)
         }
