@@ -1,0 +1,1849 @@
+{
+    "info": {
+        "_postman_id": "27ee6754-c9c3-4448-946f-98f3218e6dc9",
+        "name": "Hiring Backend API",
+        "description": "# Hiring Backend API\n\n## Quick start\n1. Run **Auth → Sign Up** to create your account.\n2. Run **Auth → Sign In** — the bearer token is saved to `bearerToken` automatically.\n3. Call **Doors → List All Doors** and copy any `id` from the response.\n4. Paste that ID into the **doorId** path variable on any Events request (visible in the \"Path Variables\" tab below the URL).\n5. Open the **Console** (View → Show Postman Console) before running encrypted requests — decrypted payloads are printed there.\n\n## How the ECDH encryption works\nEvery request in a **— ECDH Encrypted** folder has two scripts attached to it:\n- **Pre-request Script** — generates a fresh ephemeral P-256 key pair and sets `X-Client-Public-Key`.\n- **Tests** — reads `X-Server-Public-Key` from the response header, runs ECDH → HKDF-SHA256 → AES-256-GCM and logs the plaintext to the Console.\n\nError responses (4xx / 5xx) are **never encrypted** — you can read them directly from the response body.\n\n> **Requires Postman v10.13+** (Web Crypto API must be available in the sandbox).\n\n## Binary log format (Simulation endpoints)\nEach simulated event's `logEvent` field is a Base64-encoded binary blob:\n```\nbyte 0-3  → message timestamp, 4 bytes little-endian (zeroed in synthetic data)\nbyte 4    → logCode: upper nibble = payload byte count, lower nibble = event type id\nbyte 5..N → payload bytes (little-endian, layout depends on event type)\n```\nAdd `debug=true` to any simulate request to include `parsedEvent` in the response for side-by-side comparison.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {"key": "baseUrl",              "value": "https://hiring-api.samba.dev.assaabloyglobalsolutions.net", "type": "string", "description": "API base URL"},
+        {"key": "bearerToken",          "value": "",                      "type": "string", "description": "Set automatically by Sign In — do not edit"},
+        {"key": "_ephemeralPrivKeyJwk", "value": "",                      "type": "string", "description": "Managed by ECDH pre-request scripts — do not edit"},
+        {"key": "_lastDecryptedResponse","value": "",                     "type": "string", "description": "Last decrypted payload — updated by ECDH test scripts"}
+    ],
+    "item": [
+        {
+            "name": "Auth",
+            "description": "User registration and authentication. No bearer token required for these routes.",
+            "item": [
+                {
+                    "name": "Sign Up",
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Content-Type", "value": "application/json"}],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"firstName\": \"Candidate\",\n    \"lastName\": \"Tester\",\n    \"email\": \"candidate@example.com\",\n    \"password\": \"Test1@\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {"raw": "{{baseUrl}}/users/signup", "host": ["{{baseUrl}}"], "path": ["users", "signup"]},
+                        "description": "## POST /users/signup\n\nRegisters a new user. Returns the created user (password excluded).\n\n### Auth\nNone required.\n\n### Body\n| Field | Type | Rules |\n|---|---|---|\n| firstName | string | Non-blank |\n| lastName | string | Non-blank |\n| email | string | Valid e-mail format, must be unique |\n| password | string | 4–12 chars, must contain uppercase, number and symbol |\n\n### Response `201 Created`\n```json\n{\n  \"id\": 1,\n  \"firstName\": \"Candidate\",\n  \"lastName\": \"Tester\",\n  \"email\": \"candidate@example.com\"\n}\n```\n\n### Errors\n- `409` — e-mail already registered (`EMAIL_ALREADY_EXISTS`)\n- `422` — validation failed (`fieldErrors` lists the offending fields)"
+                    },
+                    "response": [
+                        {
+                            "name": "201 Created",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [{"key": "Content-Type", "value": "application/json"}],
+                                "body": {"mode": "raw", "raw": "{\n    \"firstName\": \"Candidate\",\n    \"lastName\": \"Tester\",\n    \"email\": \"candidate@example.com\",\n    \"password\": \"Test1@\"\n}"},
+                                "url": {"raw": "{{baseUrl}}/users/signup", "host": ["{{baseUrl}}"], "path": ["users", "signup"]}
+                            },
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"id\": 1,\n  \"firstName\": \"Candidate\",\n  \"lastName\": \"Tester\",\n  \"email\": \"candidate@example.com\"\n}"
+                        },
+                        {
+                            "name": "409 Email Already Exists",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [{"key": "Content-Type", "value": "application/json"}],
+                                "body": {"mode": "raw", "raw": "{\n    \"firstName\": \"Candidate\",\n    \"lastName\": \"Tester\",\n    \"email\": \"candidate@example.com\",\n    \"password\": \"Test1@\"\n}"},
+                                "url": {"raw": "{{baseUrl}}/users/signup", "host": ["{{baseUrl}}"], "path": ["users", "signup"]}
+                            },
+                            "status": "Conflict",
+                            "code": 409,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"EMAIL_ALREADY_EXISTS\",\n  \"description\": \"Email already registered: candidate@example.com\",\n  \"fieldErrors\": []\n}"
+                        },
+                        {
+                            "name": "422 Validation Failed",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [{"key": "Content-Type", "value": "application/json"}],
+                                "body": {"mode": "raw", "raw": "{\n    \"firstName\": \"\",\n    \"lastName\": \"Tester\",\n    \"email\": \"not-an-email\",\n    \"password\": \"weak\"\n}"},
+                                "url": {"raw": "{{baseUrl}}/users/signup", "host": ["{{baseUrl}}"], "path": ["users", "signup"]}
+                            },
+                            "status": "Unprocessable Entity",
+                            "code": 422,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"VALIDATION_ERROR\",\n  \"description\": \"Request validation failed\",\n  \"fieldErrors\": [\n    {\"field\": \"firstName\", \"message\": \"must not be blank\"},\n    {\"field\": \"email\",     \"message\": \"must be a well-formed email address\"},\n    {\"field\": \"password\",  \"message\": \"must match password policy\"}\n  ]\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Sign In",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const data = pm.response.json();",
+                                    "if (data.token) {",
+                                    "    pm.collectionVariables.set('bearerToken', data.token);",
+                                    "    console.log('[Auth] Bearer token saved:', data.token.substring(0, 12) + '...');",
+                                    "    pm.test('Token received', () => pm.expect(data.token).to.be.a('string').and.not.be.empty);",
+                                    "} else {",
+                                    "    pm.test('Sign in must return a token', () => { throw new Error(JSON.stringify(data)); });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [{"key": "Content-Type", "value": "application/json"}],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"email\": \"candidate@example.com\",\n    \"password\": \"Test1@\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {"raw": "{{baseUrl}}/users/signin", "host": ["{{baseUrl}}"], "path": ["users", "signin"]},
+                        "description": "## POST /users/signin\n\nAuthenticates a user and returns a session bearer token. The **Tests** script stores the token in the `bearerToken` collection variable automatically — all subsequent authenticated requests use it.\n\n### Auth\nNone required.\n\n### Body\n| Field | Type | Description |\n|---|---|---|\n| email | string | Registered e-mail |\n| password | string | Plain-text password |\n\n### Response `200 OK`\n```json\n{ \"token\": \"a1b2c3d4e5f6...\" }\n```\n\n### Errors\n- `401` — wrong e-mail or password (`INVALID_CREDENTIALS`)"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Token returned",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [{"key": "Content-Type", "value": "application/json"}],
+                                "body": {"mode": "raw", "raw": "{\n    \"email\": \"candidate@example.com\",\n    \"password\": \"Test1@\"\n}"},
+                                "url": {"raw": "{{baseUrl}}/users/signin", "host": ["{{baseUrl}}"], "path": ["users", "signin"]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"token\": \"a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2\"\n}"
+                        },
+                        {
+                            "name": "401 Invalid Credentials",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [{"key": "Content-Type", "value": "application/json"}],
+                                "body": {"mode": "raw", "raw": "{\n    \"email\": \"candidate@example.com\",\n    \"password\": \"wrongpassword\"\n}"},
+                                "url": {"raw": "{{baseUrl}}/users/signin", "host": ["{{baseUrl}}"], "path": ["users", "signin"]}
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"INVALID_CREDENTIALS\",\n  \"description\": \"Invalid email or password\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Doors",
+            "description": "Plain (unencrypted) door listing. Requires a valid bearer token.",
+            "item": [
+                {
+                    "name": "List All Doors",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors?page=0&size=20",
+                            "host": ["{{baseUrl}}"], "path": ["doors"],
+                            "query": [
+                                {"key": "page", "value": "0", "description": "Zero-based page number"},
+                                {"key": "size", "value": "20", "description": "Items per page (default 20)"},
+                                {"key": "sort", "value": "name,asc", "description": "Sort field and direction", "disabled": true}
+                            ]
+                        },
+                        "description": "## GET /doors\n\nReturns a paginated list of all doors in the system (5 000 total).\n\n### Auth\n`Authorization: Bearer <token>` — required.\n\n### Query parameters\n| Param | Default | Description |\n|---|---|---|\n| page | 0 | Zero-based page number |\n| size | 20 | Items per page |\n| sort | — | e.g. `name,asc` or `battery,desc` |\n\n### Response `200 OK`\n```json\n{\n  \"content\": [\n    {\n      \"id\": 1,\n      \"serial\": \"LLKOA1B2C3D4EF\",\n      \"lockMac\": \"AA:BB:CC:DD:EE:FF\",\n      \"name\": \"Museu do Ipiranga\",\n      \"address\": \"Parque da Independência, São Paulo - SP\",\n      \"latitude\": -23.5851,\n      \"longitude\": -46.6089,\n      \"battery\": 87\n    }\n  ],\n  \"page\": {\n    \"number\": 0,\n    \"size\": 20,\n    \"totalElements\": 5000,\n    \"totalPages\": 250\n  }\n}\n```\n\n### Notes\n- Copy any `id` from the response and paste it into the **doorId** path variable on Events requests."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"content\": [\n    {\n      \"id\": 1,\n      \"serial\": \"LLKOABC1DEF2GH\",\n      \"lockMac\": \"AA:BB:CC:DD:EE:FF\",\n      \"name\": \"Museu do Ipiranga\",\n      \"address\": \"Parque da Independência, São Paulo - SP\",\n      \"latitude\": -23.5851,\n      \"longitude\": -46.6089,\n      \"battery\": 87\n    },\n    {\n      \"id\": 2,\n      \"serial\": \"LLKOBCD2EFG3HI\",\n      \"lockMac\": \"11:22:33:44:55:66\",\n      \"name\": \"Ibirapuera Park\",\n      \"address\": \"Av. Pedro Álvares Cabral, São Paulo - SP\",\n      \"latitude\": -23.5874,\n      \"longitude\": -46.6576,\n      \"battery\": 54\n    }\n  ],\n  \"page\": {\n    \"number\": 0,\n    \"size\": 20,\n    \"totalElements\": 5000,\n    \"totalPages\": 250\n  }\n}"
+                        },
+                        {
+                            "name": "401 Unauthorized",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [],
+                                "url": {"raw": "{{baseUrl}}/doors?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"UNAUTHORIZED\",\n  \"description\": \"Authentication required\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Find Doors by Name",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/find?name=Paulista&page=0&size=20",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "find"],
+                            "query": [
+                                {"key": "name", "value": "Paulista", "description": "Case-insensitive partial name filter"},
+                                {"key": "page", "value": "0"},
+                                {"key": "size", "value": "20"}
+                            ]
+                        },
+                        "description": "## GET /doors/find\n\nReturns a paginated list of doors whose name contains the given string (case-insensitive).\n\n### Auth\n`Authorization: Bearer <token>` — required.\n\n### Query parameters\n| Param | Required | Description |\n|---|---|---|\n| name | Yes | Substring to match against door names |\n| page | No | Zero-based page number (default 0) |\n| size | No | Items per page (default 20) |\n\n### Response `200 OK`\nSame paginated shape as `GET /doors`. `totalElements` reflects the filtered count.\n\n### Errors\n- `400` — `name` parameter is missing\n- `401` — missing or invalid bearer token"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Filtered results",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/find?name=Paulista&page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors", "find"], "query": [{"key": "name", "value": "Paulista"}, {"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"content\": [\n    {\n      \"id\": 42,\n      \"serial\": \"LLKOABC1DEF2GH\",\n      \"lockMac\": \"AA:BB:CC:DD:EE:01\",\n      \"name\": \"Avenida Paulista — MASP\",\n      \"address\": \"Av. Paulista, 1578, São Paulo - SP\",\n      \"latitude\": -23.5613,\n      \"longitude\": -46.6558,\n      \"battery\": 72\n    }\n  ],\n  \"page\": {\n    \"number\": 0,\n    \"size\": 20,\n    \"totalElements\": 1,\n    \"totalPages\": 1\n  }\n}"
+                        },
+                        {
+                            "name": "400 Missing name parameter",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/find", "host": ["{{baseUrl}}"], "path": ["doors", "find"]}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"BAD_REQUEST\",\n  \"description\": \"Required parameter 'name' is missing\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Doors — ECDH Encrypted",
+            "description": "Same door listing endpoints, but the server encrypts the response body using ECDH key exchange.\n\nEach request has its full ECDH scripts in the **Pre-request Script** and **Tests** tabs. The decrypted payload is printed to the Postman Console and also stored in `_lastDecryptedResponse`.\n\n**Encrypted response shape:**\n```json\n{ \"iv\": \"<base64 12-byte IV>\", \"ciphertext\": \"<base64 AES-256-GCM ciphertext>\" }\n```",
+            "item": [
+                {
+                    "name": "List All Doors — Encrypted",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "// ── Generate ephemeral P-256 key pair (fresh per request = forward secrecy) ─",
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key (SPKI DER / Base64):', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) {",
+                                    "    console.log('[Crypto] No X-Server-Public-Key — response is unencrypted (likely an error).');",
+                                    "    console.log('[Crypto] Raw:', pm.response.text());",
+                                    "    return;",
+                                    "}",
+                                    "try {",
+                                    "    // 1. Import server ephemeral public key (SPKI DER)",
+                                    "    const serverPublicKey = await crypto.subtle.importKey(",
+                                    "        'spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)),",
+                                    "        { name: 'ECDH', namedCurve: 'P-256' }, false, []",
+                                    "    );",
+                                    "    // 2. Restore client ephemeral private key from collection variable",
+                                    "    const clientPrivKey = await crypto.subtle.importKey(",
+                                    "        'jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')),",
+                                    "        { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']",
+                                    "    );",
+                                    "    // 3. ECDH → 256-bit shared secret (x-coordinate of shared EC point)",
+                                    "    const rawSecret = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    // 4. HKDF-SHA256 → 32-byte AES key  (info = UTF-8('door-event-api-v1'), salt = 32 zero bytes)",
+                                    "    const hkdfKey     = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes = new Uint8Array(await crypto.subtle.deriveBits(",
+                                    "        { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') },",
+                                    "        hkdfKey, 256",
+                                    "    ));",
+                                    "    // 5. AES-256-GCM decrypt  (IV = 12 bytes, auth tag = last 16 bytes of ciphertext)",
+                                    "    const aesKey   = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes = await crypto.subtle.decrypt(",
+                                    "        { name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) },",
+                                    "        aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0))",
+                                    "    );",
+                                    "    const plaintext = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted response:\\n', plaintext);",
+                                    "    pm.test('Response decrypts to valid non-empty JSON', () => { pm.expect(plaintext).to.be.a('string').and.not.be.empty; JSON.parse(plaintext); });",
+                                    "} catch (err) {",
+                                    "    console.error('[Crypto] ❌ Decryption error:', err.message);",
+                                    "    pm.test('Decryption must succeed', () => { throw err; });",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors?page=0&size=20",
+                            "host": ["{{baseUrl}}"], "path": ["doors"],
+                            "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]
+                        },
+                        "description": "## GET /doors — Encrypted\n\nSame as **List All Doors** but with ECDH encryption applied.\n\n### How it works\n1. The Pre-request Script generates a P-256 key pair and sends the public key in `X-Client-Public-Key`.\n2. The server generates its own ephemeral key pair, derives the shared secret, and encrypts the response.\n3. The response body is `{ \"iv\": \"<base64>\", \"ciphertext\": \"<base64>\" }` instead of plain JSON.\n4. The Tests script performs the same ECDH computation on the client side and decrypts the ciphertext.\n5. Decrypted content is logged to the Console and stored in `_lastDecryptedResponse`.\n\n### Encrypted response shape\n```json\n{\n  \"iv\": \"<base64-encoded 12-byte IV>\",\n  \"ciphertext\": \"<base64-encoded AES-256-GCM ciphertext + 16-byte auth tag>\"\n}\n```\n\n### Headers returned by server\n| Header | Description |\n|---|---|\n| X-Server-Public-Key | Server's ephemeral SPKI DER public key (Base64) |"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Find Doors by Name — Encrypted",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key set:', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) { console.log('[Crypto] Unencrypted (error):', pm.response.text()); return; }",
+                                    "try {",
+                                    "    const serverPublicKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)), { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "    const clientPrivKey   = await crypto.subtle.importKey('jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "    const rawSecret       = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    const hkdfKey         = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes     = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') }, hkdfKey, 256));",
+                                    "    const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "    const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted:\\n', plaintext);",
+                                    "    pm.test('Decrypts to valid JSON', () => { pm.expect(plaintext).to.be.a('string'); JSON.parse(plaintext); });",
+                                    "} catch (err) { console.error('[Crypto] ❌', err.message); pm.test('Decryption must succeed', () => { throw err; }); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/find?name=Ibirapuera&page=0&size=20",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "find"],
+                            "query": [{"key": "name", "value": "Ibirapuera"}, {"key": "page", "value": "0"}, {"key": "size", "value": "20"}]
+                        },
+                        "description": "## GET /doors/find — Encrypted\n\nSame as **Find Doors by Name** but with ECDH encryption applied to the response.\n\n### Query parameters\n| Param | Required | Description |\n|---|---|---|\n| name | Yes | Case-insensitive name substring filter |\n| page | No | Zero-based page number |\n| size | No | Items per page |\n\nSee **List All Doors — Encrypted** for the full encryption flow description."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/find?name=Ibirapuera&page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors", "find"], "query": [{"key": "name", "value": "Ibirapuera"}, {"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Events",
+            "description": "Door event history. The door ID is a **path variable** on each request — edit it in the \"Path Variables\" tab below the URL bar.",
+            "item": [
+                {
+                    "name": "List Door Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/events?page=0&size=20&sort=eventTimestamp,desc",
+                            "host": ["{{baseUrl}}"], "path": ["doors", ":doorId", "events"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door to fetch events for. Get a valid ID from List All Doors."}
+                            ],
+                            "query": [
+                                {"key": "page", "value": "0"},
+                                {"key": "size", "value": "20"},
+                                {"key": "sort", "value": "eventTimestamp,desc", "description": "Sort field and direction"}
+                            ]
+                        },
+                        "description": "## GET /doors/{doorId}/events\n\nReturns a paginated list of BLE log events recorded for a specific door.\n\n### Auth\n`Authorization: Bearer <token>` — required.\n\n### Path variable\n| Variable | Description |\n|---|---|\n| doorId | Numeric door ID (get one from List All Doors) |\n\n### Query parameters\n| Param | Default | Description |\n|---|---|---|\n| page | 0 | Zero-based page number |\n| size | 20 | Items per page |\n| sort | — | e.g. `eventTimestamp,desc` |\n\n### Response `200 OK`\n```json\n{\n  \"content\": [\n    {\n      \"id\": 101,\n      \"logType\": \"DOOR_OPEN\",\n      \"eventTimestamp\": \"2025-06-12T14:32:00\",\n      \"additionalData\": []\n    },\n    {\n      \"id\": 102,\n      \"logType\": \"UNLOCK\",\n      \"eventTimestamp\": \"2025-06-12T14:31:45\",\n      \"additionalData\": [\n        {\"parameterName\": \"PERMISSION_MODE\", \"value\": \"2\"},\n        {\"parameterName\": \"PERMISSION_ID\",   \"value\": \"4815162342\"}\n      ]\n    }\n  ],\n  \"page\": { \"number\": 0, \"size\": 20, \"totalElements\": 47, \"totalPages\": 3 }\n}\n```\n\n### Errors\n- `404` — door not found (`RESOURCE_NOT_FOUND`)\n- `401` — missing or invalid bearer token"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Events list",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/events?page=0&size=20&sort=eventTimestamp,desc", "host": ["{{baseUrl}}"], "path": ["doors", "1", "events"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}, {"key": "sort", "value": "eventTimestamp,desc"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"content\": [\n    {\n      \"id\": 101,\n      \"logType\": \"DOOR_OPEN\",\n      \"eventTimestamp\": \"2025-06-12T14:32:00\",\n      \"additionalData\": []\n    },\n    {\n      \"id\": 102,\n      \"logType\": \"UNLOCK\",\n      \"eventTimestamp\": \"2025-06-12T14:31:45\",\n      \"additionalData\": [\n        {\"parameterName\": \"PERMISSION_MODE\", \"value\": \"2\"},\n        {\"parameterName\": \"PERMISSION_ID\",   \"value\": \"4815162342\"}\n      ]\n    }\n  ],\n  \"page\": { \"number\": 0, \"size\": 20, \"totalElements\": 47, \"totalPages\": 3 }\n}"
+                        },
+                        {
+                            "name": "404 Door Not Found",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/999999999/events", "host": ["{{baseUrl}}"], "path": ["doors", "999999999", "events"]}
+                            },
+                            "status": "Not Found",
+                            "code": 404,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"RESOURCE_NOT_FOUND\",\n  \"description\": \"Door not found with id: 999999999\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Raw Door Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/events/raw?page=0&size=20&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", ":doorId", "events", "raw"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door to fetch raw events for. Get a valid ID from List All Doors."}
+                            ],
+                            "query": [
+                                {"key": "page", "value": "0"},
+                                {"key": "size", "value": "20"},
+                                {"key": "debug", "value": "false", "description": "Set to true to include parsedEvent for parser verification"}
+                            ]
+                        },
+                        "description": "## GET /doors/{doorId}/events/raw\n\nReturns the same door events as `GET /doors/{id}/events` but in the **binary wire format** — identical to what `GET /doors/events/simulate` produces.\n\nEach item contains:\n- **messageKey** — `{logType}_{eventId}` identifier\n- **logEvent** — Base64-encoded raw BLE log entry:\n  - bytes 0–3  → timestamp, 4 bytes little-endian (zeroed in seeded data)\n  - byte  4    → logCode: upper nibble = payload byte count, lower nibble = event type id\n  - bytes 5..N → payload bytes, little-endian, event-type specific\n- **parsedEvent** — only when `debug=true`. Contains the expected parser output for verification.\n\nUse this to test your parsing pipeline against **persisted events** (a fixed dataset) rather than freshly generated synthetic data.\n\n### Path variable\n| Variable | Description |\n|---|---|\n| doorId | Numeric door ID (get one from List All Doors) |\n\n### Query parameters\n| Param | Default | Description |\n|---|---|---|\n| page | 0 | Zero-based page number |\n| size | 20 | Items per page |\n| debug | false | Include parsedEvent for comparison |"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — debug=false (logEvent only)",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/events/raw?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors", "1", "events", "raw"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"content\": [\n    { \"messageKey\": \"DOOR_OPEN_101\", \"logEvent\": \"AAAAAAA=\" },\n    { \"messageKey\": \"UNLOCK_102\",    \"logEvent\": \"AAAAAAAAAgX+AQAA\" }\n  ],\n  \"page\": { \"number\": 0, \"size\": 20, \"totalElements\": 47, \"totalPages\": 3 }\n}"
+                        },
+                        {
+                            "name": "200 OK — debug=true (parsedEvent included)",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/events/raw?page=0&size=1&debug=true", "host": ["{{baseUrl}}"], "path": ["doors", "1", "events", "raw"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "1"}, {"key": "debug", "value": "true"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"content\": [\n    {\n      \"messageKey\": \"UNLOCK_102\",\n      \"logEvent\": \"AAAAAAAAAgX+AQAA\",\n      \"parsedEvent\": {\n        \"logType\": \"UNLOCK\",\n        \"additionalData\": [\n          {\"parameterName\": \"PERMISSION_MODE\", \"hexValue\": \"02\", \"parsedValue\": \"BLUETOOTH\"},\n          {\"parameterName\": \"PERMISSION_ID\",   \"hexValue\": \"fe010000\", \"parsedValue\": \"510\"}\n        ]\n      }\n    }\n  ],\n  \"page\": { \"number\": 0, \"size\": 1, \"totalElements\": 47, \"totalPages\": 47 }\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Door Events — 404 (non-existent door)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {"raw": "{{baseUrl}}/doors/999999999/events", "host": ["{{baseUrl}}"], "path": ["doors", "999999999", "events"]},
+                        "description": "## GET /doors/999999999/events\n\nDemonstrates the 404 response for a door ID that does not exist in the database.\n\nError responses from `/doors/**` are **never encrypted** — even when `X-Client-Public-Key` is present — so you can always read them directly."
+                    },
+                    "response": [
+                        {
+                            "name": "404 Door Not Found",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/999999999/events", "host": ["{{baseUrl}}"], "path": ["doors", "999999999", "events"]}
+                            },
+                            "status": "Not Found",
+                            "code": 404,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"RESOURCE_NOT_FOUND\",\n  \"description\": \"Door not found with id: 999999999\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Events — ECDH Encrypted",
+            "description": "Same as the Events folder but the response body is encrypted. Edit **doorId** in the path variable on each request.",
+            "item": [
+                {
+                    "name": "List Door Events — Encrypted",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key set:', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) { console.log('[Crypto] Unencrypted (error):', pm.response.text()); return; }",
+                                    "try {",
+                                    "    const serverPublicKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)), { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "    const clientPrivKey   = await crypto.subtle.importKey('jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "    const rawSecret       = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    const hkdfKey         = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes     = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') }, hkdfKey, 256));",
+                                    "    const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "    const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted response:\\n', plaintext);",
+                                    "    pm.test('Decrypts to valid JSON', () => { pm.expect(plaintext).to.be.a('string'); JSON.parse(plaintext); });",
+                                    "} catch (err) { console.error('[Crypto] ❌', err.message); pm.test('Decryption must succeed', () => { throw err; }); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/events?page=0&size=20&sort=eventTimestamp,desc",
+                            "host": ["{{baseUrl}}"], "path": ["doors", ":doorId", "events"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door to fetch events for. Get a valid ID from List All Doors."}
+                            ],
+                            "query": [
+                                {"key": "page", "value": "0"},
+                                {"key": "size", "value": "20"},
+                                {"key": "sort", "value": "eventTimestamp,desc"}
+                            ]
+                        },
+                        "description": "## GET /doors/{doorId}/events — Encrypted\n\nReturns the encrypted event history for a specific door. Edit **doorId** in the Path Variables tab.\n\nThe ECDH encryption flow is identical to List All Doors — Encrypted. The Tests script decrypts and logs the paginated event list.\n\n### Path variable\n| Variable | Description |\n|---|---|\n| doorId | Numeric door ID (find one via List All Doors) |\n\n### Decrypted response shape\n```json\n{\n  \"content\": [\n    {\n      \"id\": 101,\n      \"logType\": \"UNLOCK\",\n      \"eventTimestamp\": \"2025-06-12T14:31:45\",\n      \"additionalData\": [\n        {\"parameterName\": \"PERMISSION_MODE\", \"value\": \"2\"},\n        {\"parameterName\": \"PERMISSION_ID\",   \"value\": \"4815162342\"}\n      ]\n    }\n  ],\n  \"page\": { \"number\": 0, \"size\": 20, \"totalElements\": 47, \"totalPages\": 3 }\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/events?page=0&size=20&sort=eventTimestamp,desc", "host": ["{{baseUrl}}"], "path": ["doors", "1", "events"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}, {"key": "sort", "value": "eventTimestamp,desc"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        },
+                        {
+                            "name": "404 Door Not Found (unencrypted)",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/999999999/events", "host": ["{{baseUrl}}"], "path": ["doors", "999999999", "events"]}
+                            },
+                            "status": "Not Found",
+                            "code": 404,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"RESOURCE_NOT_FOUND\",\n  \"description\": \"Door not found with id: 999999999\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Events — ECDH Encrypted (Raw)",
+            "description": "Raw binary door events with ECDH encryption applied. Edit **doorId** in the path variable on each request.",
+            "item": [
+                {
+                    "name": "List Raw Door Events — Encrypted",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key set:', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) { console.log('[Crypto] Unencrypted (error):', pm.response.text()); return; }",
+                                    "try {",
+                                    "    const serverPublicKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)), { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "    const clientPrivKey   = await crypto.subtle.importKey('jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "    const rawSecret       = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    const hkdfKey         = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes     = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') }, hkdfKey, 256));",
+                                    "    const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "    const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    const page = JSON.parse(plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted — raw events page:');",
+                                    "    console.log('  totalElements:', page.page?.totalElements);",
+                                    "    (page.content || []).forEach((e, i) => {",
+                                    "        console.log(`  [${i}] messageKey = ${e.messageKey}`);",
+                                    "        console.log(`  [${i}] logEvent (Base64) = ${e.logEvent}`);",
+                                    "        if (e.parsedEvent) console.log(`  [${i}] parsedEvent:`, JSON.stringify(e.parsedEvent));",
+                                    "    });",
+                                    "    pm.test('Decrypts to paginated raw events', () => {",
+                                    "        pm.expect(page).to.have.property('content');",
+                                    "        pm.expect(page.content).to.be.an('array');",
+                                    "    });",
+                                    "} catch (err) { console.error('[Crypto] ❌', err.message); pm.test('Decryption must succeed', () => { throw err; }); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/events/raw?page=0&size=20&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", ":doorId", "events", "raw"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door to fetch raw events for."}
+                            ],
+                            "query": [
+                                {"key": "page", "value": "0"},
+                                {"key": "size", "value": "20"},
+                                {"key": "debug", "value": "false", "description": "Set to true to include parsedEvent in the decrypted payload"}
+                            ]
+                        },
+                        "description": "## GET /doors/{doorId}/events/raw — Encrypted\n\nSame as **List Raw Door Events** but the server encrypts the response body.\n\nThe Tests script decrypts the paginated response and logs each event's `logEvent` (Base64) to the Console. Decode the Base64, parse the binary, and compare against `parsedEvent` (add `debug=true` to enable it).\n\nSee **List All Doors — Encrypted** for the full ECDH encryption flow description."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/events/raw?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors", "1", "events", "raw"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Simulation",
+            "description": "## Simulation endpoint — `GET /doors/events/simulate`\n\nGenerates synthetic BLE log entries for candidates to implement and verify their parser.\n\n### Response fields\n| Field | Always present | Description |\n|---|---|---|\n| messageKey | Yes | Unique identifier for the generated entry |\n| logEvent | Yes | **Base64-encoded raw binary blob** — decode this and parse it |\n| parsedEvent | Only when `debug=true` | Expected parser output for side-by-side comparison |\n\n### Binary layout of `logEvent`\n```\nbyte 0-3  → timestamp, 4 bytes little-endian (zeroed in synthetic data)\nbyte 4    → logCode: upper nibble = payload byte count, lower nibble = event type id\nbyte 5..N → payload bytes (little-endian, event-type specific)\n```\n\n### Available logType values\n`SETUP` `DOOR_OPEN` `DOOR_CLOSE` `TOUCH_UNLOCK` `MANUFACTURE` `BATTERY_LOW` `STATUS_PRIVATE` `STATUS_KEY` `STATUS_HALF_OPEN` `STATUS_DFU` `EEPROM_WRITE_ERROR` `EEPROM_CRC_ERROR` `CONFIGURATION` `RESET` `LOG_FULL` `ERROR` `SYSTEM_ERROR` `SCHEDULE_CANCEL` `UNLOCK` `UNLOCK_DENIED` `SCHEDULE_START` `SCHEDULE_FINISH` `SCHEDULE_TOUCH_CANCEL` `SCHEDULE_INIT`",
+            "item": [
+                {
+                    "name": "DOOR_OPEN — 0 payload bytes",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=DOOR_OPEN&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "DOOR_OPEN"}, {"key": "debug", "value": "false", "description": "Set to true to include parsedEvent for comparison"}]
+                        },
+                        "description": "## GET /doors/events/simulate — DOOR_OPEN\n\nDOOR_OPEN has **0 payload bytes**. The `logEvent` Base64 decodes to exactly **5 bytes** (4 timestamp + 1 logCode).\n\nThe logCode upper nibble will be `0` (no payload). The lower nibble encodes the DOOR_OPEN event type id.\n\n### Expected parsed output (add `debug=true` to see it)\n```json\n{\n  \"logType\": \"DOOR_OPEN\",\n  \"additionalData\": []\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — debug=false (no parsedEvent)",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=DOOR_OPEN", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "DOOR_OPEN"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"DOOR_OPEN_0\", \"logEvent\": \"AAAAAAA=\" },\n  { \"messageKey\": \"DOOR_OPEN_1\", \"logEvent\": \"AAAAAAA=\" },\n  { \"messageKey\": \"DOOR_OPEN_2\", \"logEvent\": \"AAAAAAA=\" }\n]"
+                        },
+                        {
+                            "name": "200 OK — debug=true (parsedEvent included)",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=1&logType=DOOR_OPEN&debug=true", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "1"}, {"key": "logType", "value": "DOOR_OPEN"}, {"key": "debug", "value": "true"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  {\n    \"messageKey\": \"DOOR_OPEN_0\",\n    \"logEvent\": \"AAAAAAA=\",\n    \"parsedEvent\": {\n      \"logType\": \"DOOR_OPEN\",\n      \"additionalData\": []\n    }\n  }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "BATTERY_LOW — 1 payload byte",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=BATTERY_LOW&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "BATTERY_LOW"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate — BATTERY_LOW\n\nBATTERY_LOW has **1 payload byte** (battery level 0–100). The `logEvent` decodes to **6 bytes** (4 + 1 + 1).\n\nLogCode upper nibble = `1`. Payload byte = battery percentage as a `uint8`.\n\n### Expected parsed output\n```json\n{\n  \"logType\": \"BATTERY_LOW\",\n  \"additionalData\": [\n    {\"parameterName\": \"BATTERY_LEVEL\", \"value\": \"23\"}\n  ]\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=BATTERY_LOW", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "BATTERY_LOW"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"BATTERY_LOW_0\", \"logEvent\": \"AAAAABN=\" },\n  { \"messageKey\": \"BATTERY_LOW_1\", \"logEvent\": \"AAAAADB=\" },\n  { \"messageKey\": \"BATTERY_LOW_2\", \"logEvent\": \"AAAAACU=\" }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "EEPROM_CRC_ERROR — 2 payload bytes",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=EEPROM_CRC_ERROR&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "EEPROM_CRC_ERROR"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate — EEPROM_CRC_ERROR\n\nEEPROM_CRC_ERROR has **2 payload bytes** (EEPROM address as `uint16` little-endian). The `logEvent` decodes to **7 bytes**.\n\nLogCode upper nibble = `2`.\n\n### Expected parsed output\n```json\n{\n  \"logType\": \"EEPROM_CRC_ERROR\",\n  \"additionalData\": [\n    {\"parameterName\": \"EEPROM_ADDRESS\", \"value\": \"1024\"}\n  ]\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=EEPROM_CRC_ERROR", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "EEPROM_CRC_ERROR"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"EEPROM_CRC_ERROR_0\", \"logEvent\": \"AAAAAAQA\" },\n  { \"messageKey\": \"EEPROM_CRC_ERROR_1\", \"logEvent\": \"AAAAAAIA\" },\n  { \"messageKey\": \"EEPROM_CRC_ERROR_2\", \"logEvent\": \"AAAAAAYA\" }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "CONFIGURATION — 4 payload bytes",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=CONFIGURATION&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "CONFIGURATION"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate — CONFIGURATION\n\nCONFIGURATION has **4 payload bytes**. The `logEvent` decodes to **9 bytes**. LogCode upper nibble = `4`.\n\nPayload encodes configuration flags as a `uint32` little-endian.\n\n### Expected parsed output\n```json\n{\n  \"logType\": \"CONFIGURATION\",\n  \"additionalData\": [\n    {\"parameterName\": \"CONFIGURATION_DATA\", \"value\": \"12345678\"}\n  ]\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=CONFIGURATION", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "CONFIGURATION"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"CONFIGURATION_0\", \"logEvent\": \"AAAAADwBAAA=\" },\n  { \"messageKey\": \"CONFIGURATION_1\", \"logEvent\": \"AAAAADwCAAA=\" },\n  { \"messageKey\": \"CONFIGURATION_2\", \"logEvent\": \"AAAAADwDAAA=\" }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "UNLOCK — 5 payload bytes",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=UNLOCK&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "UNLOCK"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate — UNLOCK\n\nUNLOCK has **5 payload bytes**. The `logEvent` decodes to **10 bytes**. LogCode upper nibble = `5`.\n\nPayload: `PERMISSION_MODE` (1 byte `uint8`) + `PERMISSION_ID` (4 bytes `uint32` little-endian).\n\n### Expected parsed output\n```json\n{\n  \"logType\": \"UNLOCK\",\n  \"additionalData\": [\n    {\"parameterName\": \"PERMISSION_MODE\", \"value\": \"2\"},\n    {\"parameterName\": \"PERMISSION_ID\",   \"value\": \"4815162342\"}\n  ]\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=UNLOCK", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "UNLOCK"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"UNLOCK_0\", \"logEvent\": \"AAAAAAAAAgX+AQAA\" },\n  { \"messageKey\": \"UNLOCK_1\", \"logEvent\": \"AAAAAAAAAgQBAgAA\" },\n  { \"messageKey\": \"UNLOCK_2\", \"logEvent\": \"AAAAAAAAAgMDAwAA\" }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "SCHEDULE_INIT — 12 payload bytes",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=SCHEDULE_INIT&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "SCHEDULE_INIT"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate — SCHEDULE_INIT\n\nSCHEDULE_INIT has **12 payload bytes** — one of the largest payloads. The `logEvent` decodes to **17 bytes**. LogCode upper nibble = `C` (hex) = 12.\n\nPayload: `USER_ID` (4 bytes `uint32` LE) + `TIME_TO_START` (4 bytes `uint32` LE, Unix timestamp) + `TIME_TO_END` (4 bytes `uint32` LE, Unix timestamp).\n\n### Expected parsed output\n```json\n{\n  \"logType\": \"SCHEDULE_INIT\",\n  \"additionalData\": [\n    {\"parameterName\": \"USER_ID\",       \"value\": \"1001\"},\n    {\"parameterName\": \"TIME_TO_START\", \"value\": \"1718200000\"},\n    {\"parameterName\": \"TIME_TO_END\",   \"value\": \"1718207200\"}\n  ]\n}\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=SCHEDULE_INIT", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "SCHEDULE_INIT"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"SCHEDULE_INIT_0\", \"logEvent\": \"AAAAAMC5AwAAQJpZZkCcWWY=\" },\n  { \"messageKey\": \"SCHEDULE_INIT_1\", \"logEvent\": \"AAAAAMC+AwAAoJpZZqCcWWY=\" },\n  { \"messageKey\": \"SCHEDULE_INIT_2\", \"logEvent\": \"AAAAAMC7AwAA4JpZZuCcWWY=\" }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "All types sampler — change logType freely",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=1&logType=DOOR_OPEN&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [
+                                {"key": "count", "value": "1"},
+                                {"key": "logType", "value": "DOOR_OPEN", "description": "Valid values (case-insensitive): SETUP, DOOR_OPEN, DOOR_CLOSE, TOUCH_UNLOCK, MANUFACTURE, BATTERY_LOW, STATUS_PRIVATE, STATUS_KEY, STATUS_HALF_OPEN, STATUS_DFU, EEPROM_WRITE_ERROR, EEPROM_CRC_ERROR, CONFIGURATION, RESET, LOG_FULL, ERROR, SYSTEM_ERROR, SCHEDULE_CANCEL, UNLOCK, UNLOCK_DENIED, SCHEDULE_START, SCHEDULE_FINISH, SCHEDULE_TOUCH_CANCEL, SCHEDULE_INIT"},
+                                {"key": "debug", "value": "false", "description": "Set to true to include parsedEvent"}
+                            ]
+                        },
+                        "description": "## GET /doors/events/simulate — Generic sampler\n\nChange `logType` to any of the 24 allowed values to explore different binary payload sizes and structures. Add `debug=true` to reveal `parsedEvent` and verify your parser output.\n\n### All valid logType values\n| logType | Payload bytes | Key fields |\n|---|---|---|\n| SETUP | 0 | — |\n| DOOR_OPEN | 0 | — |\n| DOOR_CLOSE | 0 | — |\n| TOUCH_UNLOCK | 0 | — |\n| MANUFACTURE | 0 | — |\n| BATTERY_LOW | 1 | BATTERY_LEVEL |\n| STATUS_PRIVATE | 1 | STATUS |\n| STATUS_KEY | 1 | KEY_STATUS |\n| STATUS_HALF_OPEN | 1 | DOOR_STATUS |\n| STATUS_DFU | 1 | DFU_STATUS |\n| EEPROM_WRITE_ERROR | 2 | EEPROM_ADDRESS |\n| EEPROM_CRC_ERROR | 2 | EEPROM_ADDRESS |\n| CONFIGURATION | 4 | CONFIGURATION_DATA |\n| RESET | 4 | RESET_REASON |\n| LOG_FULL | 4 | LOG_COUNT |\n| ERROR | 4 | ERROR_CODE |\n| SYSTEM_ERROR | 4 | SYSTEM_ERROR_CODE |\n| SCHEDULE_CANCEL | 4 | USER_ID |\n| UNLOCK | 5 | PERMISSION_MODE + PERMISSION_ID |\n| UNLOCK_DENIED | 5 | PERMISSION_MODE + PERMISSION_ID |\n| SCHEDULE_START | 5 | USER_ID + SCHEDULE_ID |\n| SCHEDULE_FINISH | 5 | USER_ID + SCHEDULE_ID |\n| SCHEDULE_TOUCH_CANCEL | 5 | USER_ID + SCHEDULE_ID |\n| SCHEDULE_INIT | 12 | USER_ID + TIME_TO_START + TIME_TO_END |"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Error — unknown logType (400)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=1&logType=GENERIC_CMD",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "1"}, {"key": "logType", "value": "GENERIC_CMD"}]
+                        },
+                        "description": "## Error — unknown / disallowed logType\n\nReturns `400 BAD_REQUEST` for any logType that is not in the allowed list. `GENERIC_CMD` is a proprietary type excluded from the simulation API.\n\nThe error `description` includes the rejected value to aid debugging."
+                    },
+                    "response": [
+                        {
+                            "name": "400 Bad Request — unknown logType",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=1&logType=GENERIC_CMD", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "1"}, {"key": "logType", "value": "GENERIC_CMD"}]}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"BAD_REQUEST\",\n  \"description\": \"Unknown logType 'GENERIC_CMD'. Valid values: [SETUP, DOOR_OPEN, DOOR_CLOSE, ...]\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Error — count out of range (400)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=0&logType=DOOR_OPEN",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "0"}, {"key": "logType", "value": "DOOR_OPEN"}]
+                        },
+                        "description": "## Error — count out of range\n\nReturns `400 BAD_REQUEST` when `count` is outside the allowed range of 1–100."
+                    },
+                    "response": [
+                        {
+                            "name": "400 Bad Request — count=0",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=0&logType=DOOR_OPEN", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "0"}, {"key": "logType", "value": "DOOR_OPEN"}]}
+                            },
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"code\": \"BAD_REQUEST\",\n  \"description\": \"'count' must be between 1 and 100, got 0.\",\n  \"fieldErrors\": []\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Simulation — ECDH Encrypted",
+            "description": "Same simulation endpoint with ECDH encryption applied. The Tests script decrypts the response and logs each event's `logEvent` (Base64) to the Console. Add `debug=true` to the query to also log `parsedEvent` for comparison.",
+            "item": [
+                {
+                    "name": "UNLOCK — Encrypted",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key set:', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) { console.log('[Crypto] Unencrypted (error):', pm.response.text()); return; }",
+                                    "try {",
+                                    "    const serverPublicKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)), { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "    const clientPrivKey   = await crypto.subtle.importKey('jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "    const rawSecret       = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    const hkdfKey         = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes     = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') }, hkdfKey, 256));",
+                                    "    const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "    const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    const events = JSON.parse(plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted — decode logEvent from Base64 and run through your parser:');",
+                                    "    events.forEach((e, i) => {",
+                                    "        console.log(`  [${i}] messageKey = ${e.messageKey}`);",
+                                    "        console.log(`  [${i}] logEvent (Base64) = ${e.logEvent}`);",
+                                    "        if (e.parsedEvent) console.log(`  [${i}] parsedEvent:`, JSON.stringify(e.parsedEvent));",
+                                    "    });",
+                                    "    pm.test('Decrypts to simulation event array', () => {",
+                                    "        pm.expect(events).to.be.an('array').and.not.be.empty;",
+                                    "        pm.expect(events[0]).to.have.property('messageKey');",
+                                    "        pm.expect(events[0]).to.have.property('logEvent');",
+                                    "    });",
+                                    "} catch (err) { console.error('[Crypto] ❌', err.message); pm.test('Decryption must succeed', () => { throw err; }); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=5&logType=UNLOCK&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "5"}, {"key": "logType", "value": "UNLOCK"}, {"key": "debug", "value": "false", "description": "Set to true to include parsedEvent in the decrypted payload"}]
+                        },
+                        "description": "## GET /doors/events/simulate?logType=UNLOCK — Encrypted\n\nGenerates 5 UNLOCK events and returns them encrypted.\n\nThe Tests script decrypts the ciphertext and logs each item's `logEvent` (Base64) to the Console. Decode the Base64, parse the binary (5 payload bytes: PERMISSION_MODE `uint8` + PERMISSION_ID `uint32` LE), and compare your result against `parsedEvent` (visible when `debug=true`).\n\nAdd `debug=true` to the query string to include `parsedEvent` in the plaintext so you can check your parsing."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=5&logType=UNLOCK", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "5"}, {"key": "logType", "value": "UNLOCK"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "SCHEDULE_INIT — Encrypted (12-byte payload)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key set:', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) { console.log('[Crypto] Unencrypted (error):', pm.response.text()); return; }",
+                                    "try {",
+                                    "    const serverPublicKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)), { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "    const clientPrivKey   = await crypto.subtle.importKey('jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "    const rawSecret       = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    const hkdfKey         = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes     = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') }, hkdfKey, 256));",
+                                    "    const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "    const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    const events = JSON.parse(plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted — decode logEvent from Base64 and run through your parser:');",
+                                    "    events.forEach((e, i) => {",
+                                    "        console.log(`  [${i}] messageKey = ${e.messageKey}`);",
+                                    "        console.log(`  [${i}] logEvent (Base64) = ${e.logEvent}`);",
+                                    "        if (e.parsedEvent) console.log(`  [${i}] parsedEvent:`, JSON.stringify(e.parsedEvent));",
+                                    "    });",
+                                    "    pm.test('Decrypts to simulation event array', () => { pm.expect(events).to.be.an('array').and.not.be.empty; });",
+                                    "} catch (err) { console.error('[Crypto] ❌', err.message); pm.test('Decryption must succeed', () => { throw err; }); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=SCHEDULE_INIT&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "SCHEDULE_INIT"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate?logType=SCHEDULE_INIT — Encrypted\n\nGenerates 3 SCHEDULE_INIT events (12 payload bytes each = 17 bytes total per logEvent) and returns them encrypted.\n\nBinary payload: `USER_ID` (4 bytes `uint32` LE) + `TIME_TO_START` (4 bytes `uint32` LE) + `TIME_TO_END` (4 bytes `uint32` LE).\n\nThis is one of the most complex payload types — good for testing multi-field little-endian parsing. Add `debug=true` to reveal `parsedEvent`."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=SCHEDULE_INIT", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "SCHEDULE_INIT"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "DOOR_OPEN — Encrypted (0-byte payload)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair    = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);",
+                                    "const spkiDer    = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const spkiBase64 = btoa(String.fromCharCode(...new Uint8Array(spkiDer)));",
+                                    "const privJwk    = await crypto.subtle.exportKey('jwk', keyPair.privateKey);",
+                                    "pm.collectionVariables.set('_ephemeralPrivKeyJwk', JSON.stringify(privJwk));",
+                                    "pm.request.headers.upsert({ key: 'X-Client-Public-Key', value: spkiBase64 });",
+                                    "console.log('[Crypto] Client public key set:', spkiBase64.substring(0, 24) + '...');"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubKeyBase64 = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubKeyBase64) { console.log('[Crypto] Unencrypted (error):', pm.response.text()); return; }",
+                                    "try {",
+                                    "    const serverPublicKey = await crypto.subtle.importKey('spki', Uint8Array.from(atob(serverPubKeyBase64), c => c.charCodeAt(0)), { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "    const clientPrivKey   = await crypto.subtle.importKey('jwk', JSON.parse(pm.collectionVariables.get('_ephemeralPrivKeyJwk')), { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "    const rawSecret       = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPublicKey }, clientPrivKey, 256));",
+                                    "    const hkdfKey         = await crypto.subtle.importKey('raw', rawSecret, 'HKDF', false, ['deriveBits']);",
+                                    "    const aesKeyBytes     = new Uint8Array(await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('door-event-api-v1') }, hkdfKey, 256));",
+                                    "    const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "    const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "    const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "    const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "    pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "    const events = JSON.parse(plaintext);",
+                                    "    console.log('[Crypto] ✅ Decrypted — decode logEvent from Base64 and run through your parser:');",
+                                    "    events.forEach((e, i) => {",
+                                    "        console.log(`  [${i}] messageKey = ${e.messageKey}`);",
+                                    "        console.log(`  [${i}] logEvent (Base64) = ${e.logEvent}`);",
+                                    "        if (e.parsedEvent) console.log(`  [${i}] parsedEvent:`, JSON.stringify(e.parsedEvent));",
+                                    "    });",
+                                    "    pm.test('Decrypts to simulation event array', () => { pm.expect(JSON.parse(plaintext)).to.be.an('array'); });",
+                                    "} catch (err) { console.error('[Crypto] ❌', err.message); pm.test('Decryption must succeed', () => { throw err; }); }"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=DOOR_OPEN&debug=false",
+                            "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"],
+                            "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "DOOR_OPEN"}, {"key": "debug", "value": "false"}]
+                        },
+                        "description": "## GET /doors/events/simulate?logType=DOOR_OPEN — Encrypted\n\nGenerates 3 DOOR_OPEN events (0 payload bytes each = 5 bytes total per logEvent) and returns them encrypted.\n\nAfter decrypting, Base64-decode `logEvent`. You should get exactly 5 bytes: 4 zeroed timestamp bytes + 1 logCode byte with upper nibble = `0` and lower nibble = DOOR_OPEN event type id. There is no payload to parse beyond identifying the event type."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/events/simulate?count=3&logType=DOOR_OPEN", "host": ["{{baseUrl}}"], "path": ["doors", "events", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "logType", "value": "DOOR_OPEN"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Permissions",
+            "description": "CRUD operations for door access permissions.\n\nAll routes require a valid `Bearer` token. Responses from `/doors/**` are **ECDH-encrypted** — see the **Permissions — ECDH Encrypted** folder for the encrypted variants with the decryption scripts included.",
+            "item": [
+                {
+                    "name": "Simulate Permissions",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/permissions/simulate?count=5&type=SMARTPHONE",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", "permissions", "simulate"],
+                            "query": [
+                                {"key": "count", "value": "5", "description": "Number of permissions to generate (1–100)"},
+                                {"key": "type", "value": "SMARTPHONE", "description": "Permission type: SMARTPHONE, PASSCODE, or CARD (case-insensitive)"}
+                            ]
+                        },
+                        "description": "## GET /doors/permissions/simulate — Generate synthetic permissions\n\nGenerates `count` randomly built, always-valid permission objects of the requested `type`.\n\nUse this to test your client's permission model parsing, date handling, and weekday bitmask interpretation **without creating real database records**.\n\n### Response fields\n| Field | Description |\n|---|---|\n| `messageKey` | Sequential index (`\"0\"`, `\"1\"`, …) |\n| `type` | The requested type (`SMARTPHONE`, `PASSCODE`, `CARD`) |\n| `value` | Random, always-valid value for the type (see below) |\n| `startDateTime` | Random ISO 8601 UTC — today up to +1 year |\n| `endDateTime` | Random ISO 8601 UTC — 1–730 days after `startDateTime` |\n| `weekDays` | Random bitmask 1–127. Bit 6 = Monday … bit 0 = Sunday. `127` = all days |\n\n### Value rules by type\n- **SMARTPHONE** → random e-mail, e.g. `\"swift.user42@example.com\"`\n- **PASSCODE** → random 4–9 digit string, e.g. `\"73851\"`\n- **CARD** → random non-zero UINT32 string, e.g. `\"3187492610\"`\n\n### Responses\n```json\n// 200 OK — SMARTPHONE example\n[\n  {\n    \"messageKey\": \"0\",\n    \"type\": \"SMARTPHONE\",\n    \"value\": \"swift.user42@example.com\",\n    \"startDateTime\": \"2026-05-10T00:00:00Z\",\n    \"endDateTime\": \"2027-03-14T00:00:00Z\",\n    \"weekDays\": 62\n  },\n  { \"messageKey\": \"1\", \"type\": \"SMARTPHONE\", \"value\": \"bold.access901@test.io\", \"startDateTime\": \"2026-07-22T00:00:00Z\", \"endDateTime\": \"2028-01-05T00:00:00Z\", \"weekDays\": 127 }\n]\n\n// 400 Bad Request — unknown type\n{ \"code\": \"BAD_REQUEST\", \"description\": \"Unknown permission type 'FINGERPRINT'. Valid values: [SMARTPHONE, PASSCODE, CARD]\" }\n\n// 400 Bad Request — count out of range\n{ \"code\": \"BAD_REQUEST\", \"description\": \"'count' must be between 1 and 100, got: 0\" }\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — SMARTPHONE simulation",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/permissions/simulate?count=3&type=SMARTPHONE", "host": ["{{baseUrl}}"], "path": ["doors", "permissions", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "type", "value": "SMARTPHONE"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  {\n    \"messageKey\": \"0\",\n    \"type\": \"SMARTPHONE\",\n    \"value\": \"swift.user42@example.com\",\n    \"startDateTime\": \"2026-05-10T00:00:00Z\",\n    \"endDateTime\": \"2027-03-14T00:00:00Z\",\n    \"weekDays\": 62\n  },\n  {\n    \"messageKey\": \"1\",\n    \"type\": \"SMARTPHONE\",\n    \"value\": \"bold.access901@test.io\",\n    \"startDateTime\": \"2026-07-22T00:00:00Z\",\n    \"endDateTime\": \"2028-01-05T00:00:00Z\",\n    \"weekDays\": 127\n  },\n  {\n    \"messageKey\": \"2\",\n    \"type\": \"SMARTPHONE\",\n    \"value\": \"nova.key17@sample.co\",\n    \"startDateTime\": \"2026-09-01T00:00:00Z\",\n    \"endDateTime\": \"2027-11-20T00:00:00Z\",\n    \"weekDays\": 31\n  }\n]"
+                        },
+                        {
+                            "name": "200 OK — PASSCODE simulation",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/permissions/simulate?count=3&type=PASSCODE", "host": ["{{baseUrl}}"], "path": ["doors", "permissions", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "type", "value": "PASSCODE"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"0\", \"type\": \"PASSCODE\", \"value\": \"73851\", \"startDateTime\": \"2026-04-01T00:00:00Z\", \"endDateTime\": \"2026-12-31T00:00:00Z\", \"weekDays\": 96 },\n  { \"messageKey\": \"1\", \"type\": \"PASSCODE\", \"value\": \"123456789\", \"startDateTime\": \"2026-06-15T00:00:00Z\", \"endDateTime\": \"2027-06-15T00:00:00Z\", \"weekDays\": 1 },\n  { \"messageKey\": \"2\", \"type\": \"PASSCODE\", \"value\": \"4421\", \"startDateTime\": \"2026-08-20T00:00:00Z\", \"endDateTime\": \"2027-02-10T00:00:00Z\", \"weekDays\": 127 }\n]"
+                        },
+                        {
+                            "name": "200 OK — CARD simulation",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/permissions/simulate?count=3&type=CARD", "host": ["{{baseUrl}}"], "path": ["doors", "permissions", "simulate"], "query": [{"key": "count", "value": "3"}, {"key": "type", "value": "CARD"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "[\n  { \"messageKey\": \"0\", \"type\": \"CARD\", \"value\": \"3735928559\", \"startDateTime\": \"2026-03-10T00:00:00Z\", \"endDateTime\": \"2027-01-01T00:00:00Z\", \"weekDays\": 64 },\n  { \"messageKey\": \"1\", \"type\": \"CARD\", \"value\": \"987654321\", \"startDateTime\": \"2026-05-01T00:00:00Z\", \"endDateTime\": \"2026-11-30T00:00:00Z\", \"weekDays\": 127 },\n  { \"messageKey\": \"2\", \"type\": \"CARD\", \"value\": \"4294967295\", \"startDateTime\": \"2026-07-04T00:00:00Z\", \"endDateTime\": \"2028-07-04T00:00:00Z\", \"weekDays\": 62 }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Permission — SMARTPHONE",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Authorization", "value": "Bearer {{bearerToken}}"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"type\": \"SMARTPHONE\",\n  \"value\": \"candidate@example.com\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 127\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions"],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## POST /doors/{doorId}/permissions — Create SMARTPHONE permission\n\nAssigns a smartphone-based access permission to a door.\n\n### Field rules\n| Field | Rule |\n|---|---|\n| `type` | Must be `SMARTPHONE`, `PASSCODE`, or `CARD` (case-insensitive) |\n| `value` | For `SMARTPHONE`: valid e-mail format |\n| `startDateTime` | ISO 8601 UTC; not before the start of today (UTC) |\n| `endDateTime` | ISO 8601 UTC; must be strictly after `startDateTime` |\n| `weekDays` | Bitmask 1–127. Bit 6 = Monday … bit 0 = Sunday. `127` = all days |\n\n### Responses\n```json\n// 201 Created\n{\n  \"id\": 1,\n  \"doorId\": 1,\n  \"type\": \"SMARTPHONE\",\n  \"value\": \"candidate@example.com\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 127\n}\n\n// 400 Bad Request — invalid email\n{ \"code\": \"BAD_REQUEST\", \"description\": \"SMARTPHONE permission value must be a valid e-mail address, got: 'not-an-email'\" }\n\n// 404 Not Found\n{ \"code\": \"NOT_FOUND\", \"description\": \"Door with id '999'\" }\n\n// 422 Unprocessable — weekDays out of range\n{ \"code\": \"UNPROCESSABLE_ENTITY\", \"fieldErrors\": [{ \"field\": \"weekDays\", \"message\": \"must be greater than or equal to 1\" }] }\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "201 Created — SMARTPHONE",
+                            "originalRequest": {
+                                "method": "POST",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "Content-Type", "value": "application/json"}],
+                                "body": {"mode": "raw", "raw": "{\n  \"type\": \"SMARTPHONE\",\n  \"value\": \"candidate@example.com\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 127\n}"},
+                                "url": {"raw": "{{baseUrl}}/doors/1/permissions", "host": ["{{baseUrl}}"], "path": ["doors", "1", "permissions"]}
+                            },
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"id\": 1,\n  \"doorId\": 1,\n  \"type\": \"SMARTPHONE\",\n  \"value\": \"candidate@example.com\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 127\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "Create Permission — PASSCODE",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Authorization", "value": "Bearer {{bearerToken}}"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"type\": \"PASSCODE\",\n  \"value\": \"12345\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 62\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions"],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## POST /doors/{doorId}/permissions — Create PASSCODE permission\n\n`value` must be **4–9 digits** (characters 0–9 only).\n\n### Valid examples\n- `\"1234\"` (4 digits, min)\n- `\"987654321\"` (9 digits, max)\n\n### Responses\n```json\n// 201 Created\n{ \"id\": 2, \"doorId\": 1, \"type\": \"PASSCODE\", \"value\": \"12345\", \"startDateTime\": \"...\", \"endDateTime\": \"...\", \"weekDays\": 62 }\n\n// 400 Bad Request — wrong format\n{ \"code\": \"BAD_REQUEST\", \"description\": \"PASSCODE permission value must be 4–9 digits (0-9 only), got: '123' (3 chars)\" }\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Permission — CARD",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Authorization", "value": "Bearer {{bearerToken}}"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"type\": \"CARD\",\n  \"value\": \"3735928559\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 127\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions"],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## POST /doors/{doorId}/permissions — Create CARD permission\n\n`value` must be a **non-zero UINT32** numeric string (range 1–4294967295).\n\n### Responses\n```json\n// 201 Created\n{ \"id\": 3, \"doorId\": 1, \"type\": \"CARD\", \"value\": \"3735928559\", \"startDateTime\": \"...\", \"endDateTime\": \"...\", \"weekDays\": 127 }\n\n// 400 Bad Request — zero value\n{ \"code\": \"BAD_REQUEST\", \"description\": \"CARD permission value must be a non-zero UINT32 number (1–4294967295), got: '0'\" }\n\n// 400 Bad Request — overflow\n{ \"code\": \"BAD_REQUEST\", \"description\": \"CARD permission value must be a non-zero UINT32 number (1–4294967295), got: '9999999999'\" }\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Permissions — Paginated",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions?page=0&size=20",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions"],
+                            "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## GET /doors/{doorId}/permissions — Paginated list\n\nReturns a page of permissions for the given door.\n\n### Responses\n```json\n// 200 OK\n{\n  \"content\": [\n    { \"id\": 1, \"doorId\": 1, \"type\": \"SMARTPHONE\", \"value\": \"candidate@example.com\", \"startDateTime\": \"2026-03-05T00:00:00Z\", \"endDateTime\": \"2026-12-31T23:59:59Z\", \"weekDays\": 127 }\n  ],\n  \"page\": 0,\n  \"size\": 20,\n  \"totalElements\": 1,\n  \"totalPages\": 1,\n  \"last\": true\n}\n\n// 404 Not Found\n{ \"code\": \"NOT_FOUND\", \"description\": \"Door with id '999'\" }\n```"
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Paginated permissions",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/permissions?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors", "1", "permissions"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n  \"content\": [\n    {\n      \"id\": 1,\n      \"doorId\": 1,\n      \"type\": \"SMARTPHONE\",\n      \"value\": \"candidate@example.com\",\n      \"startDateTime\": \"2026-03-05T00:00:00Z\",\n      \"endDateTime\": \"2026-12-31T23:59:59Z\",\n      \"weekDays\": 127\n    }\n  ],\n  \"page\": 0,\n  \"size\": 20,\n  \"totalElements\": 1,\n  \"totalPages\": 1,\n  \"last\": true\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Permissions — All (unpaginated)",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions/all",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions", "all"],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## GET /doors/{doorId}/permissions/all — Full list (no pagination)\n\nReturns **all** permissions for the door in a single array. No result cap is applied — the caller is responsible for handling large sets.\n\n### Responses\n```json\n// 200 OK\n[\n  { \"id\": 1, \"doorId\": 1, \"type\": \"SMARTPHONE\", \"value\": \"candidate@example.com\", \"startDateTime\": \"...\", \"endDateTime\": \"...\", \"weekDays\": 127 },\n  { \"id\": 2, \"doorId\": 1, \"type\": \"PASSCODE\", \"value\": \"12345\", \"startDateTime\": \"...\", \"endDateTime\": \"...\", \"weekDays\": 62 }\n]\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Permission by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions/:permissionId",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions", ":permissionId"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door"},
+                                {"key": "permissionId", "value": "1", "description": "ID of the permission"}
+                            ]
+                        },
+                        "description": "## GET /doors/{doorId}/permissions/{id} — Single permission\n\n### Responses\n```json\n// 200 OK\n{ \"id\": 1, \"doorId\": 1, \"type\": \"SMARTPHONE\", \"value\": \"candidate@example.com\", \"startDateTime\": \"2026-03-05T00:00:00Z\", \"endDateTime\": \"2026-12-31T23:59:59Z\", \"weekDays\": 127 }\n\n// 404 Not Found\n{ \"code\": \"NOT_FOUND\", \"description\": \"Permission with id '999' for door '1'\" }\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Permission (PATCH)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {"key": "Authorization", "value": "Bearer {{bearerToken}}"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"weekDays\": 62,\n  \"endDateTime\": \"2027-06-30T23:59:59Z\"\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions/:permissionId",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions", ":permissionId"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door"},
+                                {"key": "permissionId", "value": "1", "description": "ID of the permission"}
+                            ]
+                        },
+                        "description": "## PATCH /doors/{doorId}/permissions/{id} — Update restrictions\n\nPartially updates permission restriction fields. **`type` and `value` are immutable** and cannot be included.\n\nAll fields are optional — omit a field to keep its current value.\n\n| Field | Rule |\n|---|---|\n| `startDateTime` | ISO 8601 UTC; if provided, must not be before start of today (UTC) |\n| `endDateTime` | ISO 8601 UTC; must be strictly after the effective `startDateTime` |\n| `weekDays` | 1–127; 0 is not allowed |\n\n### Responses\n```json\n// 200 OK\n{ \"id\": 1, \"doorId\": 1, \"type\": \"SMARTPHONE\", \"value\": \"candidate@example.com\", \"startDateTime\": \"2026-03-05T00:00:00Z\", \"endDateTime\": \"2027-06-30T23:59:59Z\", \"weekDays\": 62 }\n\n// 400 Bad Request — endDateTime before startDateTime\n{ \"code\": \"BAD_REQUEST\", \"description\": \"'endDateTime' must be strictly after 'startDateTime'. Got startDateTime=2026-03-05T00:00:00Z, endDateTime=2026-01-01T00:00:00Z\" }\n\n// 422 Unprocessable — weekDays = 0\n{ \"code\": \"UNPROCESSABLE_ENTITY\", \"fieldErrors\": [{ \"field\": \"weekDays\", \"message\": \"must be greater than or equal to 1\" }] }\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Permission",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions/:permissionId",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions", ":permissionId"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door"},
+                                {"key": "permissionId", "value": "1", "description": "ID of the permission"}
+                            ]
+                        },
+                        "description": "## DELETE /doors/{doorId}/permissions/{id}\n\nPermanently removes the permission. Returns `204 No Content` on success.\n\n### Responses\n```\n204 No Content  (success, no body)\n404 Not Found   { \"code\": \"NOT_FOUND\", \"description\": \"Permission with id '999' for door '1'\" }\n```"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Permissions — ECDH Encrypted",
+            "description": "Encrypted variants of the Permissions endpoints. All `/doors/**` responses are ECDH-encrypted by the server.\n\nEach request uses a pre-request script to generate an ephemeral EC key pair and send the client public key in `X-Client-Public-Key`. The `Tests` script decrypts the response using the shared secret derived via HKDF-SHA256 and AES-256-GCM.",
+            "item": [
+                {
+                    "name": "Simulate Permissions (Encrypted)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);",
+                                    "const pubKeyDer  = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const pubKeyB64  = btoa(String.fromCharCode(...new Uint8Array(pubKeyDer)));",
+                                    "pm.collectionVariables.set('_clientPrivKey', JSON.stringify(await crypto.subtle.exportKey('jwk', keyPair.privateKey)));",
+                                    "pm.request.headers.add({ key: 'X-Client-Public-Key', value: pubKeyB64 });"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubB64   = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubB64) { console.error('[Crypto] Missing X-Server-Public-Key header'); return; }",
+                                    "const serverPubBytes  = Uint8Array.from(atob(serverPubB64), c => c.charCodeAt(0));",
+                                    "const serverPubKey    = await crypto.subtle.importKey('spki', serverPubBytes, { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "const privKeyJwk      = JSON.parse(pm.collectionVariables.get('_clientPrivKey'));",
+                                    "const clientPrivKey   = await crypto.subtle.importKey('jwk', privKeyJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "const sharedBits      = await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPubKey }, clientPrivKey, 256);",
+                                    "const info            = new TextEncoder().encode('door-event-api-v1');",
+                                    "const hkdfKey         = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);",
+                                    "const aesKeyBytes     = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info }, hkdfKey, 256);",
+                                    "const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "const permissions = JSON.parse(plaintext);",
+                                    "console.log('[Crypto] ✅ Decrypted — ' + permissions.length + ' synthetic permissions:');",
+                                    "permissions.forEach((p, i) => {",
+                                    "    console.log(`  [${i}] type=${p.type} value=${p.value} weekDays=${p.weekDays} start=${p.startDateTime}`);",
+                                    "});",
+                                    "pm.test('Decrypts to permissions array', () => { pm.expect(permissions).to.be.an('array'); });",
+                                    "pm.test('Each item has required fields', () => {",
+                                    "    permissions.forEach(p => {",
+                                    "        pm.expect(p.messageKey).to.be.a('string');",
+                                    "        pm.expect(p.type).to.be.oneOf(['SMARTPHONE', 'PASSCODE', 'CARD']);",
+                                    "        pm.expect(p.value).to.be.a('string').and.not.empty;",
+                                    "        pm.expect(p.weekDays).to.be.within(1, 127);",
+                                    "    });",
+                                    "});"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/permissions/simulate?count=5&type=SMARTPHONE",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", "permissions", "simulate"],
+                            "query": [
+                                {"key": "count", "value": "5"},
+                                {"key": "type", "value": "SMARTPHONE"}
+                            ]
+                        },
+                        "description": "## GET /doors/permissions/simulate — Encrypted\n\nGenerates synthetic permissions and returns them AES-256-GCM encrypted.\n\nThe `Tests` script:\n1. Performs the ECDH key agreement and HKDF-SHA256 derivation\n2. Decrypts the response\n3. Logs each permission's `type`, `value`, `weekDays`, and `startDateTime` to the console\n4. Asserts the array structure and field types\n\nChange `type` to `PASSCODE` or `CARD` to test different value formats."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/permissions/simulate?count=5&type=SMARTPHONE", "host": ["{{baseUrl}}"], "path": ["doors", "permissions", "simulate"], "query": [{"key": "count", "value": "5"}, {"key": "type", "value": "SMARTPHONE"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Permissions — Paginated (Encrypted)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);",
+                                    "const pubKeyDer  = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const pubKeyB64  = btoa(String.fromCharCode(...new Uint8Array(pubKeyDer)));",
+                                    "pm.collectionVariables.set('_clientPrivKey', JSON.stringify(await crypto.subtle.exportKey('jwk', keyPair.privateKey)));",
+                                    "pm.request.headers.add({ key: 'X-Client-Public-Key', value: pubKeyB64 });"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubB64   = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubB64) { console.error('[Crypto] Missing X-Server-Public-Key header'); return; }",
+                                    "const serverPubBytes  = Uint8Array.from(atob(serverPubB64), c => c.charCodeAt(0));",
+                                    "const serverPubKey    = await crypto.subtle.importKey('spki', serverPubBytes, { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "const privKeyJwk      = JSON.parse(pm.collectionVariables.get('_clientPrivKey'));",
+                                    "const clientPrivKey   = await crypto.subtle.importKey('jwk', privKeyJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "const sharedBits      = await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPubKey }, clientPrivKey, 256);",
+                                    "const info            = new TextEncoder().encode('door-event-api-v1');",
+                                    "const hkdfKey         = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);",
+                                    "const aesKeyBytes     = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info }, hkdfKey, 256);",
+                                    "const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "const page = JSON.parse(plaintext);",
+                                    "console.log('[Crypto] Decrypted permissions page — totalElements:', page.totalElements);",
+                                    "pm.test('Decrypts to paginated permissions', () => { pm.expect(page.content).to.be.an('array'); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions?page=0&size=20",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions"],
+                            "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## GET /doors/{doorId}/permissions — Encrypted paginated list\n\nSame as the plain variant but the response body is an ECDH-encrypted envelope:\n```json\n{ \"iv\": \"<base64>\", \"ciphertext\": \"<base64>\" }\n```\nDecrypt with the shared AES-256-GCM key derived from ECDH + HKDF-SHA256 (`info = \"door-event-api-v1\"`).\n\nThe `Tests` script decrypts and logs `totalElements` to the console."
+                    },
+                    "response": [
+                        {
+                            "name": "200 OK — Encrypted envelope",
+                            "originalRequest": {
+                                "method": "GET",
+                                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}, {"key": "X-Client-Public-Key", "value": "<generated by pre-request script>"}],
+                                "url": {"raw": "{{baseUrl}}/doors/1/permissions?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["doors", "1", "permissions"], "query": [{"key": "page", "value": "0"}, {"key": "size", "value": "20"}]}
+                            },
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "X-Server-Public-Key", "value": "MFkwEwYH..."}],
+                            "cookie": [],
+                            "body": "{\n  \"iv\": \"AAECBAUGB...\",\n  \"ciphertext\": \"xY3kZ9Lm...\"\n}"
+                        }
+                    ]
+                },
+                {
+                    "name": "List Permissions — All (Encrypted)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);",
+                                    "const pubKeyDer  = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const pubKeyB64  = btoa(String.fromCharCode(...new Uint8Array(pubKeyDer)));",
+                                    "pm.collectionVariables.set('_clientPrivKey', JSON.stringify(await crypto.subtle.exportKey('jwk', keyPair.privateKey)));",
+                                    "pm.request.headers.add({ key: 'X-Client-Public-Key', value: pubKeyB64 });"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubB64   = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubB64) { console.error('[Crypto] Missing X-Server-Public-Key header'); return; }",
+                                    "const serverPubBytes  = Uint8Array.from(atob(serverPubB64), c => c.charCodeAt(0));",
+                                    "const serverPubKey    = await crypto.subtle.importKey('spki', serverPubBytes, { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "const privKeyJwk      = JSON.parse(pm.collectionVariables.get('_clientPrivKey'));",
+                                    "const clientPrivKey   = await crypto.subtle.importKey('jwk', privKeyJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "const sharedBits      = await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPubKey }, clientPrivKey, 256);",
+                                    "const info            = new TextEncoder().encode('door-event-api-v1');",
+                                    "const hkdfKey         = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);",
+                                    "const aesKeyBytes     = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info }, hkdfKey, 256);",
+                                    "const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "const permissions = JSON.parse(plaintext);",
+                                    "console.log('[Crypto] Decrypted full permissions list — count:', permissions.length);",
+                                    "pm.test('Decrypts to permissions array', () => { pm.expect(permissions).to.be.an('array'); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions/all",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions", "all"],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## GET /doors/{doorId}/permissions/all — Encrypted full list\n\nReturns the complete permission list in an encrypted envelope. Decrypts to a JSON array."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Permission by ID (Encrypted)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);",
+                                    "const pubKeyDer  = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const pubKeyB64  = btoa(String.fromCharCode(...new Uint8Array(pubKeyDer)));",
+                                    "pm.collectionVariables.set('_clientPrivKey', JSON.stringify(await crypto.subtle.exportKey('jwk', keyPair.privateKey)));",
+                                    "pm.request.headers.add({ key: 'X-Client-Public-Key', value: pubKeyB64 });"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const serverPubB64   = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubB64) { console.error('[Crypto] Missing X-Server-Public-Key header'); return; }",
+                                    "const serverPubBytes  = Uint8Array.from(atob(serverPubB64), c => c.charCodeAt(0));",
+                                    "const serverPubKey    = await crypto.subtle.importKey('spki', serverPubBytes, { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "const privKeyJwk      = JSON.parse(pm.collectionVariables.get('_clientPrivKey'));",
+                                    "const clientPrivKey   = await crypto.subtle.importKey('jwk', privKeyJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "const sharedBits      = await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPubKey }, clientPrivKey, 256);",
+                                    "const info            = new TextEncoder().encode('door-event-api-v1');",
+                                    "const hkdfKey         = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);",
+                                    "const aesKeyBytes     = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info }, hkdfKey, 256);",
+                                    "const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "pm.collectionVariables.set('_lastDecryptedResponse', plaintext);",
+                                    "const perm = JSON.parse(plaintext);",
+                                    "console.log('[Crypto] Decrypted permission — id:', perm.id, 'type:', perm.type, 'weekDays:', perm.weekDays);",
+                                    "pm.test('Decrypts to permission object', () => { pm.expect(perm.id).to.be.a('number'); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions/:permissionId",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions", ":permissionId"],
+                            "variable": [
+                                {"key": "doorId", "value": "1", "description": "ID of the door"},
+                                {"key": "permissionId", "value": "1", "description": "ID of the permission"}
+                            ]
+                        },
+                        "description": "## GET /doors/{doorId}/permissions/{id} — Encrypted single permission\n\nDecrypts to the `PermissionResponse` object. The `Tests` script logs the permission `id`, `type`, and `weekDays` to the console."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Permission — SMARTPHONE (Encrypted)",
+                    "event": [
+                        {
+                            "listen": "prerequest",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const keyPair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']);",
+                                    "const pubKeyDer  = await crypto.subtle.exportKey('spki', keyPair.publicKey);",
+                                    "const pubKeyB64  = btoa(String.fromCharCode(...new Uint8Array(pubKeyDer)));",
+                                    "pm.collectionVariables.set('_clientPrivKey', JSON.stringify(await crypto.subtle.exportKey('jwk', keyPair.privateKey)));",
+                                    "pm.request.headers.add({ key: 'X-Client-Public-Key', value: pubKeyB64 });"
+                                ]
+                            }
+                        },
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "if (pm.response.code !== 201) { console.log('[Crypto] Non-201 — skipping decryption'); return; }",
+                                    "const serverPubB64   = pm.response.headers.get('X-Server-Public-Key');",
+                                    "if (!serverPubB64) { console.error('[Crypto] Missing X-Server-Public-Key header'); return; }",
+                                    "const serverPubBytes  = Uint8Array.from(atob(serverPubB64), c => c.charCodeAt(0));",
+                                    "const serverPubKey    = await crypto.subtle.importKey('spki', serverPubBytes, { name: 'ECDH', namedCurve: 'P-256' }, false, []);",
+                                    "const privKeyJwk      = JSON.parse(pm.collectionVariables.get('_clientPrivKey'));",
+                                    "const clientPrivKey   = await crypto.subtle.importKey('jwk', privKeyJwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);",
+                                    "const sharedBits      = await crypto.subtle.deriveBits({ name: 'ECDH', public: serverPubKey }, clientPrivKey, 256);",
+                                    "const info            = new TextEncoder().encode('door-event-api-v1');",
+                                    "const hkdfKey         = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']);",
+                                    "const aesKeyBytes     = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info }, hkdfKey, 256);",
+                                    "const aesKey          = await crypto.subtle.importKey('raw', aesKeyBytes, { name: 'AES-GCM' }, false, ['decrypt']);",
+                                    "const { iv: ivB64, ciphertext: ctB64 } = pm.response.json();",
+                                    "const plainBytes      = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: Uint8Array.from(atob(ivB64), c => c.charCodeAt(0)) }, aesKey, Uint8Array.from(atob(ctB64), c => c.charCodeAt(0)));",
+                                    "const plaintext       = new TextDecoder().decode(plainBytes);",
+                                    "const perm = JSON.parse(plaintext);",
+                                    "console.log('[Crypto] Created permission — id:', perm.id, 'type:', perm.type);",
+                                    "pm.test('Decrypts to created permission', () => { pm.expect(perm.type).to.equal('SMARTPHONE'); });"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {"key": "Authorization", "value": "Bearer {{bearerToken}}"},
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"type\": \"SMARTPHONE\",\n  \"value\": \"candidate@example.com\",\n  \"startDateTime\": \"2026-03-05T00:00:00Z\",\n  \"endDateTime\": \"2026-12-31T23:59:59Z\",\n  \"weekDays\": 127\n}",
+                            "options": {"raw": {"language": "json"}}
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/doors/:doorId/permissions",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["doors", ":doorId", "permissions"],
+                            "variable": [{"key": "doorId", "value": "1", "description": "ID of the door"}]
+                        },
+                        "description": "## POST /doors/{doorId}/permissions — Encrypted create\n\nCreates a permission and returns the result in an AES-256-GCM envelope. The `Tests` script decrypts and logs the created permission's ID."
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ]
+}
