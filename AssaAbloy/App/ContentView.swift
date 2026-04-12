@@ -14,6 +14,7 @@ struct ContentView: View {
     var body: some View {
         if authViewModel.isAuthenticated {
             DoorsFactory.makeDoorsListView()
+                .environmentObject(authViewModel)
         } else {
             AuthFactory.makeSignInView(viewModel: authViewModel)
         }

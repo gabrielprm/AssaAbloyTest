@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DoorsListView: View {
+    @EnvironmentObject var authViewModel: AuthViewModel
     @StateObject var viewModel: DoorsViewModel
     
     var body: some View {
@@ -44,6 +45,16 @@ struct DoorsListView: View {
                 set: { if !$0 { viewModel.errorMessage = nil } }
             )) {
                 Alert(title: Text("Error"), message: Text(viewModel.errorMessage ?? ""), dismissButton: .default(Text("OK")))
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        authViewModel.signOut()
+                    }) {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .foregroundColor(.red)
+                    }
+                }
             }
         }
     }

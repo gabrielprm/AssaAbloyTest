@@ -1,10 +1,11 @@
 import Foundation
 
 struct User: Codable, Identifiable {
-    let id: Int
+    let id: String
     let firstName: String
     let lastName: String
     let email: String
+    let createdAt: String?
 }
 
 struct AuthResponse: Codable {
