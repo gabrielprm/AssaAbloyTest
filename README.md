@@ -44,3 +44,7 @@ A native `XCTest` suite lives under the `AssaAbloyTests/` target validating core
 To run tests locally:
 1. Hit `Cmd + U` within Xcode.
 2. Ensure specific networking service mocks intercept payloads correctly ensuring accurate Model validation (`PermissionModels`, `AuthViewModel`, etc).
+
+## AI Usage
+
+This project was developed with the assistance of Copilot/Claude. It aided in various stages of the development lifecycle, including structuring the initial architecture, generating repetitive boilerplate code, implementing specific complex logic like the bitwise operations for day parsing, validating constraints across network responses, and formatting pull requests/documentations
