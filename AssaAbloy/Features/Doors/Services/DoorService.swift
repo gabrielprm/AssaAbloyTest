@@ -3,14 +3,15 @@ import Foundation
 protocol DoorServiceProtocol {
     func getDoors(page: Int) async throws -> DoorsResponse
     func findDoors(name: String, page: Int) async throws -> DoorsResponse
+    func getEvents(doorId: Int, page: Int) async throws -> DoorEventsResponse
 }
 
 class DoorService: DoorServiceProtocol {
-    private let session: URLSession
+    private let networkClient: NetworkClientProtocol
     private let tokenManager: TokenManaging
     
-    init(session: URLSession = .shared, tokenManager: TokenManaging) {
-        self.session = session
+    init(networkClient: NetworkClientProtocol = NetworkClient(), tokenManager: TokenManaging) {
+        self.networkClient = networkClient
         self.tokenManager = tokenManager
     }
     
@@ -35,7 +36,18 @@ class DoorService: DoorServiceProtocol {
         return try await fetch(url: urlComponents.url!)
     }
     
-    private func fetch(url: URL) async throws -> DoorsResponse {
+    func getEvents(doorId: Int, page: Int) async throws -> DoorEventsResponse {
+        var urlComponents = URLComponents(url: API.baseURL.appendingPathComponent("doors/\(doorId)/events"), resolvingAgainstBaseURL: false)!
+        urlComponents.queryItems = [
+            URLQueryItem(name: "page", value: "\(page)"),
+            URLQueryItem(name: "size", value: "20"),
+            URLQueryItem(name: "sort", value: "eventTimestamp,desc")
+        ]
+        
+        return try await fetch(url: urlComponents.url!)
+    }
+    
+    private func fetch<T: Decodable>(url: URL) async throws -> T {
         guard let token = try? tokenManager.getToken() else {
             throw NetworkError.unhandledResponse
         }
@@ -44,20 +56,6 @@ class DoorService: DoorServiceProtocol {
         request.httpMethod = "GET"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.unhandledResponse
-        }
-        
-        if httpResponse.statusCode == 200 {
-            return try JSONDecoder().decode(DoorsResponse.self, from: data)
-        } else {
-            if let errorResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                throw NetworkError.serverError(errorResp)
-            } else {
-                throw NetworkError.unhandledResponse
-            }
-        }
+        return try await networkClient.request(request, responseType: T.self)
     }
 }

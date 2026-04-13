@@ -8,15 +8,17 @@ struct DoorsListView: View {
         NavigationView {
             List {
                 ForEach(viewModel.doors) { door in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(door.name).font(.headline)
-                        Text(door.address).font(.subheadline).foregroundColor(.gray)
-                        Text("Battery: \(door.battery)%").font(.caption).foregroundColor(door.battery < 20 ? .red : .green)
-                    }
-                    .padding(.vertical, 4)
-                    .onAppear {
-                        if door == viewModel.doors.last {
-                            Task { await viewModel.loadDoors() }
+                    NavigationLink(destination: DoorsFactory.makeDoorEventsListView(for: door)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(door.name).font(.headline)
+                            Text(door.address).font(.subheadline).foregroundColor(.gray)
+                            Text("Battery: \(door.battery)%").font(.caption).foregroundColor(door.battery < 20 ? .red : .green)
+                        }
+                        .padding(.vertical, 4)
+                        .onAppear {
+                            if door == viewModel.doors.last {
+                                Task { await viewModel.loadDoors() }
+                            }
                         }
                     }
                 }

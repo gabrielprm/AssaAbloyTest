@@ -1,18 +1,10 @@
 import Foundation
 
-enum NetworkError: Error {
-    case invalidURL
-    case noData
-    case parsingError
-    case serverError(ErrorResponse)
-    case unhandledResponse
-}
-
 class AuthService {
-    private let session: URLSession
+    private let networkClient: NetworkClientProtocol
     
-    init(session: URLSession = .shared) {
-        self.session = session
+    init(networkClient: NetworkClientProtocol = NetworkClient()) {
+        self.networkClient = networkClient
     }
     
     func signUp(body: Data) async throws -> User {
@@ -22,18 +14,7 @@ class AuthService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.unhandledResponse
-        }
-        
-        if httpResponse.statusCode == 201 {
-            return try JSONDecoder().decode(User.self, from: data)
-        } else {
-            let errorResp = try JSONDecoder().decode(ErrorResponse.self, from: data)
-            throw NetworkError.serverError(errorResp)
-        }
+        return try await networkClient.request(request, responseType: User.self)
     }
     
     func signIn(body: Data) async throws -> AuthResponse {
@@ -43,20 +24,6 @@ class AuthService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.unhandledResponse
-        }
-        
-        if httpResponse.statusCode == 200 {
-            return try JSONDecoder().decode(AuthResponse.self, from: data)
-        } else {
-            if let errorResp = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                 throw NetworkError.serverError(errorResp)
-            } else {
-                 throw NetworkError.unhandledResponse
-            }
-        }
+        return try await networkClient.request(request, responseType: AuthResponse.self)
     }
 }
