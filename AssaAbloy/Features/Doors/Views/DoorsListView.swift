@@ -31,6 +31,15 @@ struct DoorsListView: View {
                     }
                 }
             }
+            .overlay(Group {
+                if viewModel.doors.isEmpty && !viewModel.isLoading {
+                    EmptyStateView(
+                        iconName: "door.left.hand.closed",
+                        title: "No Doors Found",
+                        message: "There are no doors available to display."
+                    )
+                }
+            })
             .listStyle(PlainListStyle())
             .navigationTitle("Doors")
             .searchable(text: $viewModel.searchText, prompt: "Search doors...")

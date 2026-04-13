@@ -16,6 +16,12 @@ enum DoorsFactory {
     }
     
     static func makeDoorEventsListView(for door: Door) -> DoorEventsListView {
-        return DoorEventsListView(viewModel: makeDoorEventsViewModel(for: door))
+        let viewModel = makeDoorEventsViewModel(for: door)
+        return DoorEventsListView(viewModel: viewModel)
+    }
+
+    static func makePermissionsListView(for door: Door) -> PermissionsListView {
+        let viewModel = PermissionsViewModel(door: door, doorService: DoorService(tokenManager: KeychainManager.shared))
+        return PermissionsListView(viewModel: viewModel)
     }
 }

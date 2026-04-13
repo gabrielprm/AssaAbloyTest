@@ -47,9 +47,24 @@ struct DoorEventsListView: View {
                 }
             }
         }
+        .overlay(Group {
+            if viewModel.events.isEmpty && !viewModel.isLoading {
+                EmptyStateView(
+                    iconName: "list.bullet.clipboard",
+                    title: "No Events",
+                    message: "There are no events recorded for this door yet."
+                )
+            }
+        })
         .listStyle(PlainListStyle())
         .navigationTitle(viewModel.door.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: DoorsFactory.makePermissionsListView(for: viewModel.door)) {
+                    Image(systemName: "key.fill")
+                }
+            }
+        }
         .task {
             if viewModel.events.isEmpty {
                 await viewModel.loadEvents()
