@@ -60,7 +60,7 @@ class AuthViewModel: ObservableObject {
             let bodyData = try JSONSerialization.data(withJSONObject: bodyDict)
             _ = try await authService.signUp(body: bodyData)
             // After successful signup, auto sign-in
-            try await signIn()
+            await signIn()
         } catch NetworkError.serverError(let errorResponse) {
             if !errorResponse.fieldErrors.isEmpty {
                 errorMessage = errorResponse.fieldErrors.map { "\($0.field): \($0.message)" }.joined(separator: "\n")
