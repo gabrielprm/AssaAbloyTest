@@ -1,6 +1,6 @@
-# AssaAbloy iOS
+# AssaAbloy Test iOS
 
-Welcome to the Assa Abloy App documentation. This iOS application manages building access control, allowing users to securely authenticate and view managed doors, read door events in real-time, and manage explicit access permissions across various credential mechanisms.
+Welcome to the Assa Abloy Test App documentation. This iOS application manages building access control, allowing users to securely authenticate and view managed doors, read door events in real-time, and manage explicit access permissions across various credential mechanisms.
 
 ## Features
 
